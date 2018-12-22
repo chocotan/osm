@@ -6,6 +6,7 @@ import io.loli.util.osm.source.Storage;
 import io.loli.util.osm.source.StorageFactory;
 import io.loli.util.osm.source.StorageProperties;
 import javaslang.Tuple2;
+import javaslang.Tuple3;
 import org.apache.commons.collections4.QueueUtils;
 import org.apache.commons.collections4.queue.CircularFifoQueue;
 import org.apache.commons.io.FileUtils;
@@ -13,13 +14,15 @@ import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.Queue;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -48,12 +51,15 @@ public class OsmUi extends JFrame {
     private JButton 批量删除Button;
     private JButton 批量删除Button1;
     private JTextField threadNumberfield;
+    private JTextField endpoint1;
+    private JTextField endpoint2;
+    private JButton 互换Button;
     private Task task;
 
     public OsmUi() {
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(new Dimension(450, 600));
-        setPreferredSize(new Dimension(450, 600));
+        setSize(new Dimension(485, 600));
+        setPreferredSize(new Dimension(485, 600));
         setResizable(false);
         add(panel1);
         setVisible(true);
@@ -97,6 +103,34 @@ public class OsmUi extends JFrame {
             task.setToProperties(toProperties());
             task.delete2();
         });
+        互换Button.addActionListener(e->{
+            String type1Str = type1.getSelectedItem().toString();
+            String type2Str = type2.getSelectedItem().toString();
+            String key1Str = key1.getText();
+            String key2Str = key2.getText();
+            String bucket1Str = bucket1.getText();
+            String bucket2Str = bucket2.getText();
+            String secret1Str = secret1.getText();
+            String secret2Str = secret2.getText();
+            String region1Str = region1.getText();
+            String region2Str = region2.getText();
+            String endpoint1Str = endpoint1.getText();
+            String endpoint2Str = endpoint2.getText();
+            type1.setSelectedItem(type2Str);
+            type2.setSelectedItem(type1Str);
+            key1.setText(key2Str);
+            key2.setText(key1Str);
+            region1.setText(region2Str);
+            region2.setText(region1Str);
+            secret1.setText(secret2Str);
+            secret2.setText(secret1Str);
+            bucket1.setText(bucket2Str);
+            bucket2.setText(bucket1Str);
+            endpoint1.setText(endpoint2Str);
+            endpoint2.setText(endpoint1Str);
+            repaint();
+            revalidate();
+        });
         loadConfig();
     }
 
@@ -124,6 +158,7 @@ public class OsmUi extends JFrame {
                 .withKey(key1.getText())
                 .withSecret(secret1.getText())
                 .withRegion(region1.getText())
+                .withEndpoint(endpoint1.getText())
                 .build();
     }
 
@@ -134,6 +169,7 @@ public class OsmUi extends JFrame {
                 .withKey(key2.getText())
                 .withSecret(secret2.getText())
                 .withRegion(region2.getText())
+                .withEndpoint(endpoint2.getText())
                 .build();
     }
 
@@ -149,6 +185,8 @@ public class OsmUi extends JFrame {
             String secret2Str = secret2.getText();
             String region1Str = region1.getText();
             String region2Str = region2.getText();
+            String endpoint1Str = endpoint1.getText();
+            String endpoint2Str = endpoint2.getText();
             JSONObject cfg = new JSONObject();
             cfg.put("type1", type1Str);
             cfg.put("type2", type2Str);
@@ -160,6 +198,8 @@ public class OsmUi extends JFrame {
             cfg.put("bucket2", bucket2Str);
             cfg.put("region1", region1Str);
             cfg.put("region2", region2Str);
+            cfg.put("endpoint1", endpoint1Str);
+            cfg.put("endpoint2", endpoint2Str);
             String json = cfg.toString();
             String cfgFilePath = System.getProperty("java.io.tmpdir") + File.separator + "osmcfg.json";
             FileUtils.writeStringToFile(new File(cfgFilePath), json, "UTF-8");
@@ -182,6 +222,8 @@ public class OsmUi extends JFrame {
             String secret2Str = cfg.getString("secret2");
             String region1Str = cfg.getString("region1");
             String region2Str = cfg.getString("region2");
+            String endpoint1Str = cfg.getString("endpoint1");
+            String endpoint2Str = cfg.getString("endpoint2");
             type1.setSelectedItem(type1Str);
             type2.setSelectedItem(type2Str);
             key1.setText(key1Str);
@@ -192,6 +234,8 @@ public class OsmUi extends JFrame {
             secret2.setText(secret2Str);
             bucket1.setText(bucket1Str);
             bucket2.setText(bucket2Str);
+            endpoint1.setText(endpoint1Str);
+            endpoint2.setText(endpoint2Str);
             repaint();
             revalidate();
         } catch (Exception ignored) {
@@ -199,14 +243,13 @@ public class OsmUi extends JFrame {
     }
 
     private boolean checkValue() {
-        if (StringUtils.isBlank(region1.getText()) ||
-                StringUtils.isBlank(region2.getText()) ||
+        if (
                 StringUtils.isBlank(key1.getText()) ||
-                StringUtils.isBlank(key2.getText()) ||
-                StringUtils.isBlank(secret1.getText()) ||
-                StringUtils.isBlank(secret2.getText()) ||
-                StringUtils.isBlank(bucket1.getText()) ||
-                StringUtils.isBlank(bucket2.getText())) {
+                        StringUtils.isBlank(key2.getText()) ||
+                        StringUtils.isBlank(secret1.getText()) ||
+                        StringUtils.isBlank(secret2.getText()) ||
+                        StringUtils.isBlank(bucket1.getText()) ||
+                        StringUtils.isBlank(bucket2.getText())) {
             JOptionPane.showMessageDialog(this, "参数不能为空",
                     "检查参数",
                     JOptionPane.ERROR_MESSAGE);
@@ -262,18 +305,10 @@ public class OsmUi extends JFrame {
                             if (pauseStatus.get()) {
                                 waitForNotify();
                             }
-                            Tuple2<String, List<String>> list = from.list(fromProperties.getBucket(), "", lastMarker, 1000);
-                            if (list == null || list._1 == null || list._2 == null) {
-                                // 处理结束
-                                log.add("处理结束，共有" +
-                                        successCount +
-                                        "个成功，共有" +
-                                        failedCount +
-                                        "个失败");
-                                break;
-                            }
+                            Tuple3<Boolean, String, List<String>> list = from.list(fromProperties.getBucket(), "", lastMarker, 1000);
+
                             // 如果都上传完了，用返回的marker
-                            List<String> fileKeys = list._2;
+                            List<String> fileKeys = list._3;
                             fileKeys.parallelStream().forEach(key -> {
                                 // 如果已停止，就不执行了
 
@@ -294,7 +329,16 @@ public class OsmUi extends JFrame {
                                     failedReason.put(key, message);
                                 }
                             });
-                            lastMarker = list._1;
+                            lastMarker = list._2;
+                            if (list._2 == null) {
+                                // 处理结束
+                                log.add("处理结束，共有" +
+                                        successCount +
+                                        "个成功，共有" +
+                                        failedCount +
+                                        "个失败");
+                                break;
+                            }
                         } catch (Exception e) {
                             addLog("发生错误", e.getClass().getName() + "^^" + e.getMessage());
                             if (successCount.get() == 0) {
@@ -396,6 +440,7 @@ public class OsmUi extends JFrame {
         private void delete1() {
             listAndAction(key -> {
                 from.delete(fromProperties.getBucket(), key);
+                successCount.incrementAndGet();
                 addLog(key, "删除成功");
             });
         }

@@ -11,6 +11,7 @@ import io.loli.util.osm.source.Storage;
 import io.loli.util.osm.source.StorageProperties;
 import javaslang.Tuple;
 import javaslang.Tuple2;
+import javaslang.Tuple3;
 
 import java.io.File;
 import java.util.List;
@@ -22,7 +23,7 @@ public class BaiduBosStorage implements Storage {
     public BaiduBosStorage(StorageProperties properties) {
         BosClientConfiguration config = new BosClientConfiguration();
         config.setCredentials(new DefaultBceCredentials(properties.getKey(), properties.getSecret()));
-        config.setEndpoint(properties.getRegion());
+        config.setEndpoint(properties.getEndpoint());
         client = new BosClient(config);
     }
 
@@ -32,14 +33,12 @@ public class BaiduBosStorage implements Storage {
     }
 
     @Override
-    public Tuple2<String, List<String>> list(String bucket, String prefix, String marker, Integer size) {
+    public Tuple3<Boolean, String, List<String>> list(String bucket, String prefix, String marker, Integer size) {
         ListObjectsRequest request = new ListObjectsRequest(bucket).withMarker(marker)
                 .withMaxKeys(size);
         ListObjectsResponse objectListing = client.listObjects(request);
-        if (!objectListing.isTruncated()) {
-            return null;
-        }
-        return Tuple.of(objectListing.getNextMarker(), objectListing.getContents().stream()
+
+        return Tuple.of(objectListing.isTruncated(), objectListing.getNextMarker(), objectListing.getContents().stream()
                 .map(BosObjectSummary::getKey).collect(Collectors.toList()));
     }
 

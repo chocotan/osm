@@ -6,6 +6,16 @@ public class StorageProperties {
     private String secret;
     private String bucket;
     private String region;
+    private String endpoint;
+
+
+    public String getEndpoint() {
+        return endpoint;
+    }
+
+    public void setEndpoint(String endpoint) {
+        this.endpoint = endpoint;
+    }
 
     public String getType() {
         return type;
@@ -47,13 +57,13 @@ public class StorageProperties {
         this.region = region;
     }
 
-
     public static final class StoragePropertiesBuilder {
         private String type;
         private String key;
         private String secret;
         private String bucket;
         private String region;
+        private String endpoint;
 
         private StoragePropertiesBuilder() {
         }
@@ -87,6 +97,11 @@ public class StorageProperties {
             return this;
         }
 
+        public StoragePropertiesBuilder withEndpoint(String endpoint) {
+            this.endpoint = endpoint;
+            return this;
+        }
+
         public StorageProperties build() {
             StorageProperties storageProperties = new StorageProperties();
             storageProperties.setType(type);
@@ -94,6 +109,7 @@ public class StorageProperties {
             storageProperties.setSecret(secret);
             storageProperties.setBucket(bucket);
             storageProperties.setRegion(region);
+            storageProperties.setEndpoint(endpoint);
             return storageProperties;
         }
     }

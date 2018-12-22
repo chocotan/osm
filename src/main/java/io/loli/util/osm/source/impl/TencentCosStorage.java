@@ -13,6 +13,7 @@ import io.loli.util.osm.source.Storage;
 import io.loli.util.osm.source.StorageProperties;
 import javaslang.Tuple;
 import javaslang.Tuple2;
+import javaslang.Tuple3;
 
 import java.io.File;
 import java.util.List;
@@ -33,15 +34,12 @@ public class TencentCosStorage implements Storage {
     }
 
     @Override
-    public Tuple2<String, List<String>> list(String bucket, String prefix, String marker, Integer size) {
+    public Tuple3<Boolean, String, List<String>> list(String bucket, String prefix, String marker, Integer size) {
         ListObjectsRequest request = new ListObjectsRequest().withBucketName(bucket)
                 .withMarker(marker)
                 .withMaxKeys(size);
         ObjectListing objectListing = client.listObjects(request);
-        if (objectListing.isTruncated()) {
-            return null;
-        }
-        return Tuple.of(objectListing.getNextMarker(), objectListing.getObjectSummaries().stream()
+        return Tuple.of(objectListing.isTruncated(), objectListing.getNextMarker(), objectListing.getObjectSummaries().stream()
                 .map(COSObjectSummary::getKey).collect(Collectors.toList()));
     }
 
@@ -61,7 +59,7 @@ public class TencentCosStorage implements Storage {
     }
 
     @Override
-    public void delete(String bucket, String key){
+    public void delete(String bucket, String key) {
         client.deleteObject(bucket, key);
     }
 }
